@@ -1,9 +1,3 @@
-Flask 
+flask
 requests
-protobuf
-protobuf_decoder
-pyjwt
-urllib3
-pycryptodome
-httpx
 pycryptodome
