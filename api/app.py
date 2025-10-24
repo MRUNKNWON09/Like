@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 import requests
-import threading
 import time
 import urllib3
 from Crypto.Cipher import AES
@@ -39,7 +38,7 @@ def get_jwt_token(uid, password):
 # --- Encrypt functions ---
 def Encrypt_ID(x):
     x = int(x)
-    dec = [hex(i)[2:] for i in range(128, 256)]  # 80 -> ff
+    dec = [hex(i)[2:] for i in range(128, 256)]
     xxx = [hex(i)[2:] for i in range(1, 64)]
     x = x / 128
     strx = int(x)
@@ -76,13 +75,20 @@ def FOX_SendLike(token, target_id):
         "Accept": "/"
     }
     data = bytes.fromhex(encrypt_api("08" + Encrypt_ID(target_id) + "1801"))
-    response = requests.post(url, headers=headers, data=data, verify=False)
-    return response.status_code == 200
+    try:
+        response = requests.post(url, headers=headers, data=data, verify=False, timeout=10)
+        return response.status_code == 200
+    except Exception as e:
+        print(f"⚠️ Error sending like: {e}")
+        return False
 
 def send_like_for_token(uid, password, target_id):
     token = get_jwt_token(uid, password)
+    print(f"UID {uid} token: {token}")  # Debug
     if token:
-        return FOX_SendLike(token, target_id)
+        result = FOX_SendLike(token, target_id)
+        print(f"UID {uid} like result: {result}")  # Debug
+        return result
     return False
 
 # --- Flask route ---
@@ -97,17 +103,8 @@ def send_likes():
         return jsonify({"error": "uid must be an integer"}), 400
 
     results = {}
-    threads = []
-
     for uid, password in tokens.items():
-        thread = threading.Thread(
-            target=lambda u=uid, p=password: results.update({u: send_like_for_token(u, p, target_id)})
-        )
-        threads.append(thread)
-        thread.start()
-        time.sleep(0.1)
-
-    for thread in threads:
-        thread.join()
+        results[uid] = send_like_for_token(uid, password, target_id)
+        time.sleep(0.1)  # Optional delay
 
     return jsonify(results)
